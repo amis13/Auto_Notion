@@ -1,0 +1,24 @@
+# Claves y entorno local (¡nunca subir!)
+.env
+.venv/
+
+# Caché de Python
+__pycache__/
+*.pyc
+
+# Datos generados por la herramienta
+backups/
+preview/
+
+# Borradores personales (la plantilla sí se versiona)
+new_pages/*
+!new_pages/_plantilla.md
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Configuración local de Claude Code
+.claude/
