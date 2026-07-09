@@ -443,9 +443,13 @@ def _parse_blocks(lines):
 
         # Imagen o media tipada: ![video](url), ![audio](url), ![pdf](url)…
         img = _IMG_LINE.match(stripped)
-        if img and img.group(2).startswith(("http://", "https://")):
+        if img and img.group(2).startswith(("http://", "https://", "_preserve_:")):
             flush_all()
             alt, url = img.group(1).strip(), img.group(2)
+            if url.startswith("_preserve_:"):
+                blocks.append(_node("_preserve", {"id": url.split(":", 1)[1]}))
+                i += 1
+                continue
             keyword = alt.split(":", 1)[0].strip().lower()
             caption = alt.split(":", 1)[1].strip() if ":" in alt else ""
             media = MEDIA_KEYWORDS.get(keyword)

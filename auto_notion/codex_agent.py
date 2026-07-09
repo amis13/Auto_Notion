@@ -79,8 +79,8 @@ class CodexCliAgent(BaseAgent):
                 if proc.returncode == 0 and text:
                     return text
 
-                combined = f"{(proc.stderr or '').strip()}\n{(proc.stdout or '').strip()}"[:600]
-                lowered = combined.lower()
+                full_combined = f"{(proc.stderr or '').strip()}\n{(proc.stdout or '').strip()}"
+                lowered = full_combined.lower()
                 if "usage limit" in lowered or "rate limit" in lowered or "429" in lowered:
                     last = "límite de uso del plan de ChatGPT alcanzado"
                     time.sleep(delay)
@@ -91,7 +91,8 @@ class CodexCliAgent(BaseAgent):
                         "Sesión de Codex CLI caducada o inválida. Ejecuta «codex login» "
                         "en la terminal para volver a iniciar sesión."
                     )
-                last = combined or f"código de salida {proc.returncode}"
+                last = full_combined[-600:] if len(full_combined) > 600 else full_combined
+                last = last or f"código de salida {proc.returncode}"
                 time.sleep(5)
             raise RuntimeError(f"Codex CLI falló tras varios intentos: {last}")
         finally:

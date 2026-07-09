@@ -82,18 +82,20 @@ class GeminiCliAgent(BaseAgent):
                 if proc.returncode == 0 and text.strip():
                     return text
 
-                combined = f"{err}\n{out}"[:600]
-                if "429" in combined or "quota" in combined.lower() or "exhausted" in combined.lower():
+                full_combined = f"{err}\n{out}"
+                lowered = full_combined.lower()
+                if "429" in lowered or "quota" in lowered or "exhausted" in lowered:
                     last = "cuota/límite del CLI alcanzado"
                     time.sleep(delay)
                     delay = min(delay * 2, 120)
                     continue
-                if "login" in combined.lower() or "credential" in combined.lower() or "auth" in combined.lower():
+                if "login" in lowered or "credential" in lowered or "auth" in lowered:
                     raise RuntimeError(
                         "Sesión de Gemini CLI caducada o inválida. Ejecuta «gemini» en la "
                         "terminal para volver a iniciar sesión."
                     )
-                last = combined or f"código de salida {proc.returncode}"
+                last = full_combined[-600:] if len(full_combined) > 600 else full_combined
+                last = last or f"código de salida {proc.returncode}"
                 time.sleep(5)
             raise RuntimeError(f"Gemini CLI falló tras varios intentos: {last}")
         finally:

@@ -27,6 +27,13 @@ CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-5.5")
 
+LMSTUDIO_API_BASE = os.getenv("LMSTUDIO_API_BASE", "http://localhost:1234/v1")
+LMSTUDIO_API_TOKEN = os.getenv("LMSTUDIO_API_TOKEN", "")
+LMSTUDIO_MODEL = os.getenv("LMSTUDIO_MODEL", "local-model")
+LMSTUDIO_THINK = os.getenv("LMSTUDIO_THINK", "auto").strip().lower()
+LMSTUDIO_CONTEXT_LENGTH = os.getenv("LMSTUDIO_CONTEXT_LENGTH", "native").strip().lower()
+LMSTUDIO_MAX_TOKENS = os.getenv("LMSTUDIO_MAX_TOKENS", "").strip()
+
 BACKUP_DIR = ROOT / "backups"
 PREVIEW_DIR = ROOT / "preview"
 

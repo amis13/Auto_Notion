@@ -186,6 +186,63 @@ class NotionAPI:
                 children=blocks[i : i + batch],
             )
 
+    def replace_page_content(self, page_id, new_blocks):
+        children = self.list_children(page_id)
+        preserved_ids = set()
+        anchor_id = None
+        blocks_to_delete = []
+
+        for i, b in enumerate(children):
+            t = b.get("type")
+            data = b.get(t) or {}
+            is_preserved = t in ("child_page", "child_database") or (
+                t in MEDIA_TYPES and data.get("type") == "file"
+            )
+            if is_preserved:
+                preserved_ids.add(b["id"])
+            else:
+                if anchor_id is None:
+                    anchor_id = b["id"]
+                else:
+                    blocks_to_delete.append(b["id"])
+
+        for b_id in blocks_to_delete:
+            self._call(self.client.blocks.delete, block_id=b_id)
+
+        current_after_id = anchor_id
+        if current_after_id is None and children:
+            current_after_id = children[0]["id"]
+
+        batch = []
+        
+        def flush_batch():
+            nonlocal current_after_id, batch
+            if not batch: return
+            for i in range(0, len(batch), 50):
+                kwargs = {"block_id": page_id, "children": batch[i : i + 50]}
+                if current_after_id:
+                    kwargs["after"] = current_after_id
+                resp = self._call(self.client.blocks.children.append, **kwargs)
+                if resp.get("results"):
+                    current_after_id = resp["results"][-1]["id"]
+            batch = []
+
+        for nb in new_blocks:
+            if nb.get("type") == "_preserve":
+                flush_batch()
+                p_id = nb["_preserve"]["id"]
+                if p_id in preserved_ids:
+                    current_after_id = p_id
+            else:
+                batch.append(nb)
+        
+        flush_batch()
+
+        if anchor_id:
+            self._call(self.client.blocks.delete, block_id=anchor_id)
+        
+        return len(preserved_ids)
+
     def create_page(self, parent_id, title, blocks=None):
         """Crea una subpágina bajo parent_id y devuelve su id."""
         blocks = blocks or []

@@ -15,7 +15,21 @@ def _slug(path):
     return re.sub(r"[^\w.\-]+", "-", path, flags=re.UNICODE).strip("-") or "pagina"
 
 
-def _collect(notion, page_id, path, recursive):
+def _match_exclusion(path, excludes):
+    """Devuelve el patrón de excludes que coincide con path, o None.
+
+    Coincide por sufijo de segmentos, sin distinguir mayúsculas: «docs/x»
+    excluye web/docs/x (y con ello todo su subárbol).
+    """
+    p = path.strip("/").lower()
+    for excl in excludes:
+        e = excl.strip().strip("/").lower()
+        if e and (p == e or p.endswith("/" + e)):
+            return excl
+    return None
+
+
+def _collect(notion, page_id, path, recursive, excludes=(), matched=None):
     tree = notion.fetch_block_tree(page_id)
     entries = [{
         "id": page_id,
@@ -26,7 +40,14 @@ def _collect(notion, page_id, path, recursive):
     }]
     if recursive:
         for sub_id, sub_title in notion.child_pages(tree):
-            entries += _collect(notion, sub_id, f"{path}/{sub_title}", True)
+            sub_path = f"{path}/{sub_title}"
+            excl = _match_exclusion(sub_path, excludes)
+            if excl is not None:
+                if matched is not None:
+                    matched.add(excl)
+                print(f"   ⏭️  Excluida: {sub_path}")
+                continue
+            entries += _collect(notion, sub_id, sub_path, True, excludes, matched)
     return entries
 
 
@@ -55,11 +76,18 @@ def _update_manifest(backup_dir, filename, entry):
 
 def run(route, dry_run=False, recursive=True, assume_yes=False,
         model=None, use_search=True, instructions=None, review=True, provider=None,
-        plan=True):
+        plan=True, exclude=None, think=None, lm_context=None, lm_max_tokens=None):
     provider = resolve_provider(model, provider)
     config.validate(provider=provider)
     notion = NotionAPI(config.NOTION_TOKEN)
-    agent = make_agent(model, use_search=use_search, provider=provider)
+    agent = make_agent(
+        model,
+        use_search=use_search,
+        provider=provider,
+        think=think,
+        lm_context=lm_context,
+        lm_max_tokens=lm_max_tokens,
+    )
 
     print(f"🔍 Resolviendo ruta «{route}»…")
     page_id, title = notion.resolve(route)
@@ -69,7 +97,12 @@ def run(route, dry_run=False, recursive=True, assume_yes=False,
         display = "/".join(s.strip() for s in route.split("/") if s.strip())
 
     print("📚 Recopilando páginas…")
-    entries = _collect(notion, page_id, display, recursive)
+    excludes = [e for e in (exclude or []) if e.strip().strip("/")]
+    matched = set()
+    entries = _collect(notion, page_id, display, recursive, excludes, matched)
+    for excl in excludes:
+        if excl not in matched:
+            print(f"   ⚠️  --excluir «{excl}» no coincide con ninguna subpágina.")
 
     print(f"\nPáginas a procesar ({len(entries)}):")
     for e in entries:
@@ -157,10 +190,8 @@ def _process(notion, agent, entry, backup_dir, stamp, dry_run, instructions, rev
 
     blocks = md_to_blocks(improved)
     print(f"   ✍️  Actualizando Notion ({len(blocks)} bloques)…")
-    kept = notion.clear_page(entry["id"])
+    kept = notion.replace_page_content(entry["id"], blocks)
     if kept:
-        print(f"   📎 {kept} bloque(s) conservados (subpáginas, bases de datos o archivos subidos) "
-              "quedan al inicio de la página.")
-    notion.append_blocks(entry["id"], blocks)
+        print(f"   📎 {kept} bloque(s) preservados intercalados en el contenido.")
     print("   ✅ Página actualizada")
     return True

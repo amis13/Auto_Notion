@@ -48,10 +48,12 @@ def _plain(rich_text):
     return "".join(t.get("plain_text", "") for t in rich_text or [])
 
 
-def _media_line(kind, data):
+def _media_line(kind, data, block_id=None):
     url, source = _file_url(data)
     if source != "external" or not url:
-        return None  # archivos subidos a Notion: se conservan aparte (URLs caducan)
+        if block_id:
+            return f"![{kind} protegida](_preserve_:{block_id})"
+        return None
     caption = _rt_to_md(data.get("caption")).replace("\n", " ").strip()
     alt = f"{kind}: {caption}" if caption else kind
     return f"![{alt}]({url})"
@@ -140,9 +142,11 @@ def _render(blocks, indent):
             if kind == "external" and url:
                 caption = _rt_to_md(data.get("caption")).replace("\n", " ")
                 lines += ["", pad + f"![{caption}]({url})", ""]
+            else:
+                lines += ["", pad + f"![imagen protegida](_preserve_:{b['id']})", ""]
 
         elif t in ("video", "audio", "pdf", "file"):
-            media = _media_line(t, data)
+            media = _media_line(t, data, b["id"])
             if media:
                 lines += [pad + media, ""]
 

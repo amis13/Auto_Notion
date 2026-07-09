@@ -70,8 +70,8 @@ class ClaudeCliAgent(BaseAgent):
             if proc.returncode == 0 and text.strip() and not is_error:
                 return text
 
-            combined = f"{(proc.stderr or '').strip()}\n{text}"[:600]
-            lowered = combined.lower()
+            full_combined = f"{(proc.stderr or '').strip()}\n{text}"
+            lowered = full_combined.lower()
             if "rate limit" in lowered or "overloaded" in lowered or "429" in lowered or "usage limit" in lowered:
                 last = "límite de uso del plan de Claude alcanzado"
                 time.sleep(delay)
@@ -82,7 +82,8 @@ class ClaudeCliAgent(BaseAgent):
                     "Sesión de Claude CLI caducada o inválida. Ejecuta «claude» y usa "
                     "/login para volver a iniciar sesión."
                 )
-            last = combined or f"código de salida {proc.returncode}"
+            last = full_combined[-600:] if len(full_combined) > 600 else full_combined
+            last = last or f"código de salida {proc.returncode}"
             time.sleep(5)
         raise RuntimeError(f"Claude CLI falló tras varios intentos: {last}")
 
